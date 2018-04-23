@@ -15,8 +15,7 @@
    specific language governing permissions and limitations
    under the License.
 
-.. include:: common.defs
-
+.. include:: ../../common.defs
 .. highlight:: cpp
 .. default-domain:: cpp
 
@@ -37,16 +36,16 @@ Description
 +++++++++++
 
 :class:`BufferWriter` is intended to increase code reliability and reduce complexity in the common
-circumstance of generating formatted output strings in |TS|. Current usage is a mixture of
+circumstance of generating formatted output strings in fixed buffers. Current usage is a mixture of
 :code:`snprintf` and :code:`memcpy` which provides a large scope for errors and verbose code to
-check for buffer overruns. The goal is to provide a wrapper over buffer size tracking to make
-such code simpler and less vulnerable to implementation error.
+check for buffer overruns. The goal is to provide a wrapper over buffer size tracking to make such
+code simpler and less vulnerable to implementation error.
 
 :class:`BufferWriter` itself is an abstract class to describe the base interface to wrappers for
-various types of output buffers. :class:`FixedBufferWriter` is a subclass designed to wrap a fixed
-size buffer. :class:`FixedBufferWriter` is constructed by passing it a buffer and a size, which it then
-tracks as data is written. Writing past the end of the buffer is clipped to the buffer preventing
-overruns.
+various types of output buffers. As a common example, :class:`FixedBufferWriter` is a subclass
+designed to wrap a fixed size buffer. :class:`FixedBufferWriter` is constructed by passing it a
+buffer and a size, which it then tracks as data is written. Writing past the end of the buffer is
+clipped to prevent overruns.
 
 Consider current code that looks like this.
 
@@ -83,9 +82,8 @@ This is changed to
    bw.write(thing2, thing2_len);
    bw.write(thing3, thing3_len);
 
-The remaining length is updated every time and checked every time, without having to remember. A
-series of checks, calls to :code:`memcpy`, and size updates become a simple series of calls to
-:func:`BufferWriter::write`.
+The remaining length is updated every time and checked every time. A series of checks, calls to
+:code:`memcpy`, and size updates become a simple series of calls to :func:`BufferWriter::write`.
 
 For other types of interaction, :class:`FixedBufferWriter` provides access to the unused buffer via
 :func:`BufferWriter::auxBuffer` and :func:`BufferWriter::remaining`. This makes it possible to easily
@@ -110,8 +108,8 @@ Usage
 
 The header files are divided in to two variants. :ts:git:`lib/ts/BufferWriter.h` provides the basic
 capabilities of buffer output control. :ts:git:`lib/ts/BufferWriterFormat.h` provides the basic
-formatted output mechanisms, primarily the implementation and ancillary classes for
-:class:`BWFSpec` which is used to build formatters.
+:ref:`formatted output mechanisms <bw-formatting>`, primarily the implementation and ancillary
+classes for :class:`BWFSpec` which is used to build formatters.
 
 :class:`BufferWriter` is an abstract base class, in the style of :code:`std::ostream`. There are
 several subclasses for various use cases. When passing around this is the common type.
@@ -127,7 +125,7 @@ from the buffer to other storage after the output is assembled. Rather than havi
    char buff[1024];
    ts::FixedBufferWriter bw(buff, sizeof(buff));
 
-can be more compactly as::
+it can be written more compactly as::
 
    ts::LocalBufferWriter<1024> bw;
 
@@ -163,11 +161,12 @@ Reading
 
 Data in the buffer can be extracted using :func:`BufferWriter::data`. This and
 :func:`BufferWriter::size` return a pointer to the start of the buffer and the amount of data
-written to the buffer. This is very similar to :func:`BufferWriter::view` which returns a
+written to the buffer. This is effectively the same as :func:`BufferWriter::view` which returns a
 :class:`string_view` which covers the output data. Calling :func:`BufferWriter::error` will indicate
-if more data than space available was written. :func:`BufferWriter::extent` returns the amount of
-data written to the :class:`BufferWriter`. This can be used in a two pass style with a null / size 0
-buffer to determine the buffer size required for the full output.
+if more data than space available was written (i.e. the buffer would have been overrun).
+:func:`BufferWriter::extent` returns the amount of data written to the :class:`BufferWriter`. This
+can be used in a two pass style with a null / size 0 buffer to determine the buffer size required
+for the full output.
 
 Advanced
 --------
@@ -184,13 +183,17 @@ delimiter.
 :func:`BufferWriter::remaining` returns the amount of buffer space not yet consumed.
 
 :func:`BufferWriter::auxBuffer` returns a pointer to the first byte of the buffer not yet used. This
-is useful to do speculative output, or do bounded output in a manner similar to use
+is useful to do speculative output, or do bounded output in a manner similar to using
 :func:`BufferWriter::clip` and :func:`BufferWriter::extend`. A new :class:`BufferWriter` instance
 can be constructed with
 
 .. code-block:: cpp
 
    ts::FixedBufferWriter subw(w.auxBuffer(), w.remaining());
+
+or as a convenience ::
+
+   ts::FixedBuffer subw{w.auxBuffer()};
 
 Output can be written to :arg:`subw`. If successful, then :code:`w.fill(subw.size())` will add that
 output to the main buffer. Depending on the purpose, :code:`w.fill(subw.extent())` can be used -
@@ -200,14 +203,12 @@ underrun as the argument is an unsigned type.
 
 If there is an error then :arg:`subw` can be ignored and some suitable error output written to
 :arg:`w` instead. A common use case is to verify there is sufficient space in the buffer and create
-a "not enough space" message if not. E.g.
+a "not enough space" message if not. E.g. ::
 
-.. code-block:: cpp
-
-   ts::FixedBufferWriter subw(w.auxBuffer(), w.remaining());
+   ts::FixedBufferWriter subw{w.auxWriter()};
    this->write_some_output(subw);
    if (!subw.error()) w.fill(subw.size());
-   else w << "Insufficient space"_sv;
+   else w.write("Insufficient space"_sv);
 
 Examples
 ++++++++
@@ -242,16 +243,29 @@ becomes
 
    // ...
 
-   w << " [";
+   w.write(" ["_sv);
    if (s->txn_conf->insert_request_via_string > 2) { // Highest verbosity
-      w << incoming_via;
+      w.write(incoming_via);
    } else {
-      w << ts::string_view{incoming_via + VIA_CLIENT, VIA_SERVER - VIA_CLIENT};
+      w.write(ts::string_view{incoming_via + VIA_CLIENT, VIA_SERVER - VIA_CLIENT});
    }
-   w << ']';
+   w.write(']');
 
-In addition there will be no overrun on the memory buffer in :arg:`w`, in strong contrast
-to the original code.
+There will be no overrun on the memory buffer in :arg:`w`, in strong contrast to the original code.
+This can be done better, as ::
+
+   if (w.remaining() >= 3) {
+      w.clip(1).write(" ["_sv);
+      if (s->txn_conf->insert_request_via_string > 2) { // Highest verbosity
+         w.write(incoming_via);
+      } else {
+         w.write(ts::string_view{incoming_via + VIA_CLIENT, VIA_SERVER - VIA_CLIENT});
+      }
+      w.extend(1).write(']');
+   }
+
+This has the result that the terminal bracket will always be present which is very much appreciated
+by code that parses the resulting log file.
 
 .. _bw-formatting:
 
@@ -262,10 +276,10 @@ The base :class:`BufferWriter` was made to provide memory safety for formatted o
 formmatted output was made to provide *type* safety. The implementation deduces the types of the
 arguments to be formatted and handles them in a type specific and safe way.
 
-The formatting style is of the "prefix" or "printf" style - the format is specified first, and then
+The formatting style is of the "prefix" or "printf" style - the format is specified first and then
 all the arguments. This contrasts to the "infix" or "streaming" style where formatting, literals,
 and argument are intermixed in the order of output. There are various arguments for both styles but
-conversations within the |TS| community indicated a clear preference for the previx style. Therefore
+conversations within the |TS| community indicated a clear preference for the prefix style. Therefore
 formatted out consists of a format string, containing *formats*, which are replaced during output
 with the values of arguments to the print function.
 
@@ -274,8 +288,13 @@ dominant style of output in |TS| and during the design phase I was told any perf
 minimal. While work has and will be done to extend :class:`BufferWriter` to operate on non-fixed
 buffers, such use is secondary to operating directly on memory.
 
-The overriding design goal is to provide the type specific formatting and flexibility of C++ stream
-operators with the performance of :code:`snprintf` and :code:`memcpy`.
+.. important::
+
+   The overriding design goal is to provide the type specific formatting and flexibility of C++
+   stream operators with the performance of :code:`snprintf` and :code:`memcpy`.
+
+This will preserve the general style of output in |TS| while still reaping the benefits of type safe
+formatting with little to no performance cost.
 
 Type safe formatting has two major benefits -
 
@@ -291,26 +310,28 @@ Type safe formatting has two major benefits -
    developers to make useful error messages. See :ref:`this example <bwf-http-debug-name-example>`
    for more detail.
 
-As a result of these benefits there exist substitutes for :code:`printf`. Unfortunately most of
-these are rather project specific and don't suit the use case in |TS|. The two best options,
-`Boost.Format <https://www.boost.org/doc/libs/1_64_0/libs/format/>`__ and `fmt
-<https://github.com/fmtlib/fmt>`__, while good, are also not quite close enough to outweight the
-benefits of a version specifically tuned for |TS|. ``Boost.Format`` is not acceptable because of the
-Boost footprint. ``fmt`` has the problem of depending on C++ stream operators and therefor not
-having the required level of performance or memory characteristics. The possibility of using C++
-stream operators was investigated but changing those to use pre-existing buffers not allocated
-internally was very difficult, judged worse than building a relatively simple implementation. The
+As a result of these benefits there has been other work on similar projects, to replace
+:code:`printf` a better mechanism. Unfortunately most of these are rather project specific and don't
+suit the use case in |TS|. The two best options, `Boost.Format
+<https://www.boost.org/doc/libs/1_64_0/libs/format/>`__ and `fmt <https://github.com/fmtlib/fmt>`__,
+while good, are also not quite close enough to outweight the benefits of a version specifically
+tuned for |TS|. ``Boost.Format`` is not acceptable because of the Boost footprint. ``fmt`` has the
+problem of depending on C++ stream operators and therefore not having the required level of
+performance or memory characteristics. Its main benefit, of reusing stream operators, doesn't apply
+to |TS| because of the nigh non-existence of such operators. The possibility of using C++ stream
+operators was investigated but changing those to use pre-existing buffers not allocated internally
+was very difficult, judged worse than building a relatively simple implementation from scratch. The
 actual core implementation of formatted output for :class:`BufferWriter` is not very large - most of
 the overall work will be writing formatters, work which would need to be done in any case but in
 contrast to current practice, only done once.
 
 :class:`BufferWriter` supports formatting output in a style similar to Python formatting via
-:func:`BufferWriter::print`. Looking at the other versions of this style of formatting, almost all
-of them have gone with this style. Boost.Format also takes basically this same approach, just using
+:func:`BufferWriter::print`. Looking at the other versions of work in this area, almost all of them
+have gone with this style. Boost.Format also takes basically this same approach, just using
 different paired delimiters. |TS| contains increasing amounts of native Python code which means many
 |TS| developers will already be familiar (or should become familiar) with this style of formatting.
-While not *exactly* the same at the Python version, BWF (:class:`BufferWriter` Formatting)
-tries to be as similar as language and internal needs allows.
+While not *exactly* the same at the Python version, BWF (:class:`BufferWriter` Formatting) tries to
+be as similar as language and internal needs allow.
 
 As noted previously and in the Python and even :code:`printf` way, a format string consists of
 literal text in which formats are embedded. Each format marks a place where formatted data of
@@ -318,9 +339,9 @@ an argument will be placed, along with argument specific formatting. The format 
 three parts, separated by colons.
 
 While this seems a bit complex, all of it is optional. If default output is acceptable, then BWF
-will work with just the format ``{}``. In a sense, ``{}`` servers the same function for output as
-:code:`auto` does for programming - the compiler knows the type, it should be able to do the appropriate
-thing without the programmer needing to be explicit.
+will work with just the format ``{}``. In a sense, ``{}`` serves the same function for output as
+:code:`auto` does for programming - the compiler knows the type, it should be able to do something
+reasonable without the programmer needing to be explicit.
 
 .. productionList:: Format
    format: "{" [name] [":" [specifier] [":" extension]] "}"
@@ -330,17 +351,17 @@ thing without the programmer needing to be explicit.
    ICHAR: a printable ASCII character except for '{', '}', ':'
 
 :token:`name`
-   The :token:`name` of the argument to use. This can be a non-negative integer in which case it is the zero
-   based index of the argument to the method call. E.g. ``{0}`` means the first argument and ``{2}``
-   is the third argument after the format.
+   The :token:`name` of the argument to use. This can be a non-negative integer in which case it is
+   the zero based index of the argument to the method call. E.g. ``{0}`` means the first argument
+   and ``{2}`` is the third argument after the format.
 
       ``bw.print("{0} {1}", 'a', 'b')`` => ``a b``
 
       ``bw.print("{1} {0}", 'a', 'b')`` => ``b a``
 
-   The :token:`name` can be omitted in which case it is treated as an index in parallel to the position in
-   the format string. Only the position in the format string matters, not what names other
-   format elements may have used.
+   The :token:`name` can be omitted in which case it is treated as an index in parallel to the
+   position in the format string. Only the position in the format string matters, not what names
+   other format elements may have used.
 
       ``bw.print("{0} {2} {}", 'a', 'b', 'c')`` => ``a c c``
 
@@ -465,8 +486,12 @@ Some examples, comparing :code:`snprintf` and :func:`BufferWriter::print`. ::
    bw.print("Number of items {}", thing->count());
 
 Enumerations become easier. Note in this case argument indices are used in order to print both a
-name and a value for the enumeration. The internal implementation of this is :ref:`here
-<bwf-http-debug-name-example>` ::
+name and a value for the enumeration. A key benefit here is the lack of need for a developer to know
+the specific free function or method needed to do the name lookup. In this case,
+:code:`HttpDebugNuames::get_server_state_name`. Rather than every developer having to memorize the
+assocation between the type and the name lookup function, or grub through the code hoping for an
+example, the compiler is told once and henceforth does the lookup. The internal implementation of
+this is :ref:`here <bwf-http-debug-name-example>` ::
 
    if (len > 0) {
       auto n = snprintf(buff, len, "Unexpected event %d in state %s[%d] for %.*s",
@@ -481,7 +506,9 @@ name and a value for the enumeration. The internal implementation of this is :re
    bw.print("Unexpected event {0} in state {1}[{1:d}] for {2}",
       event, t_state.current.state, string_view{host, host_len});
 
-Using :code:`std::string` ::
+Using :code:`std::string`, which illustrates the advantage of a formatter overloading knowing how to
+get the size from the object and not having to deal with restrictions on the numeric type (e.g.,
+that :code:`%.*s` requires an :code:`int`, not a :code:`size_t`). ::
 
    if (len > 0) {
       len -= snprintf(buff, len, "%.*s", static_cast<int>(s.size()), s.data);
@@ -489,10 +516,16 @@ Using :code:`std::string` ::
 
    bw.print("{}", s);
 
-IP addresses ::
+IP addresses are much easier. There are two big advantages here. One is not having to know the
+conversion function name. The other is the lack of having to declare local variables and having to
+remember what the appropriate size is. Beyond there this code is more performant because the output
+is rendered directly in the output buffer, not rendered to a temporary and then copied over. This
+lack of local variables can be particularly nice in the context of a :code:`switch` statement where
+local variables for a :code:`case` mean having to add extra braces, or declare the temporaries at an
+outer scope. ::
 
    char ip_buff1[INET6_ADDRPORTSTRLEN];
-   char ip_buff2[INET6_ADDRPRTSTRLEN];
+   char ip_buff2[INET6_ADDRPORTSTRLEN];
    ats_ip_nptop(ip_buff1, sizeof(ip_buff1), addr1);
    ats_ip_nptop(ip_buff2, sizeof(ip_buff2), add2);
    if (len > 0) {
@@ -543,7 +576,7 @@ pointers looks like::
    }
 
 The code checks if the type ``p`` or ``P`` was used in order to select the appropriate case, then
-delegates the actually rendering to the integer formatter with a type of ``x`` or ``X`` as
+delegates the actual rendering to the integer formatter with a type of ``x`` or ``X`` as
 appropriate. In turn other formatters, if given the type ``p`` or ``P`` can cast the value to
 :code:`const void*` and call :code:`bwformat` on that to output the value as a pointer.
 
@@ -587,6 +620,26 @@ that in the same header file that provides the type.
    In actual practice, due to this method being so obscure it's not actually used as far as I
    can determine.
 
+Argument Forwarding
+-------------------
+
+It will frequently be useful for other libraries to allow local formatting (such as :code:`Errata`).
+For such cases the class methods will need to take variable arguments and then forward them on to
+the formatter. :class:`BufferWriter` provides the :func:`BufferWriter::printv` overload for this
+purpose. Instead of taking variable arguments, these overloads take a :code:`std::tuple` of
+arguments. Such as tuple is easily created with `std::forward_as_tuple
+<http://en.cppreference.com/w/cpp/utility/tuple/forward_as_tuple>`__. A standard implementation that
+uses the :code:`std::string` overload for :func:`bwprint` would look like ::
+
+   template < typename ... Args >
+   std::string message(string_view fmt, Args &&... args) {
+      std::string zret;
+      return ts::bwprint(zret, fmt, std::forward_as_tuple(args...));
+   }
+
+This gathers the argument (generally references to the arguments) in to a single tuple which is then
+passed by reference, to avoid restacking the arguments for every nested function call.
+
 Specialized Types
 -----------------
 
@@ -600,6 +653,12 @@ These are types for which there exists a type specific BWF formatter.
 
    'p' or 'P'
       The pointer and length value of the view in lower ('p') or upper ('P') case.
+
+   The :token:`precision` is interpreted specially for this type to mean "skip :token:`precision`
+   initial characters". When combined with :token:`max` this allows a mechanism for printing
+   substrings of the :class:`string_view`. For instance, to print the 10th through 20th characters
+   the format ``{:.10,20}`` would suffice. Given the method :code:`substr` for :class:`string_view`
+   is cheap, it's unclear how useful this is.
 
 :code:`sockaddr const*`
    The IP address is printed. Fill is used to fill in address segments if provided, not to the
@@ -629,9 +688,7 @@ These are types for which there exists a type specific BWF formatter.
       Internally justify the numeric values. This must be the first or second character. If it is the second
       the first character is treated as the internal fill character. If omitted '0' (zero) is used.
 
-   E.g.
-
-   .. code-block:: cpp
+   E.g. ::
 
       void func(sockaddr const* addr) {
         bw.print("To {}", addr); // -> "To 172.19.3.105:4951"
@@ -705,24 +762,31 @@ For convenience a stream operator for :code:`std::stream` is provided to make th
    std::cout << bw;
    std::cout << bw.view(); // identical effect as the previous line.
 
-Using a :class:`BufferWriter` with :code:`printf` is straight forward by use of the sized string format code.
+Using a :class:`BufferWriter` with :code:`printf` is straight forward by use of the sized string
+format code.
 
 .. code-block:: cpp
 
    ts::LocalBufferWriter<256> bw;
-   bw.print("Failed to connect to {}\n", addr1);
-   printf("%.*s", static_cast<int>(bw.size()), bw.data());
+   bw.print("Failed to connect to {}", addr1);
+   printf("%.*s\n", static_cast<int>(bw.size()), bw.data());
 
-In C++, writing to a stream can be done without any local variables at all.
+Alternatively the output can be null terminated in the formatting to avoid having to pass the size. ::
+
+   ts::LocalBufferWriter<256> bw;
+   printf("%s\n", bw.print("Failed to connect to {}\0", addr1).data());
+
+When using C++ stream I/O, writing to a stream can be done without any local variables at all.
 
 .. code-block:: cpp
 
    std::cout << ts::LocalBufferWriter<256>().print("Failed to connect to {}\n", addr1);
 
-This is quite handy for temporary debugging messages as it avoids having to clean up local variable
+This is handy for temporary debugging messages as it avoids having to clean up local variable
 declarations later, particularly when the types involved themselves require additional local
 declarations (such as in this example, an IP address which would normally require a local text
-buffer for conversion before printing).
+buffer for conversion before printing). As noted previously this is particularly useful inside a
+:code:`case` where local variables are more annoying to set up.
 
 Reference
 +++++++++
@@ -807,6 +871,11 @@ Reference
 
       Print the arguments according to the format. See `bw-formatting`_.
 
+   .. function:: template <typename ... Args> \
+         BufferWriter & printv(TextView fmt, std::tuple<Args...> && args)
+
+      Print the arguments in the tuple :arg:`args` according to the format. See `bw-formatting`_.
+
    .. function:: std::ostream & operator >> (std::ostream & stream) const
 
       Write the contents of the buffer to :arg:`stream` and return :arg:`stream`.
@@ -825,10 +894,13 @@ Reference
       Construct an instance that will write to :arg:`buffer` at most :arg:`length` bytes. If more
       data is written, all data past the maximum size is discarded.
 
-   .. function:: reduce(size_t n)
+   .. function:: FixedBufferWriter & reduce(size_t n)
 
-      Roll back the output to :arg:`n` bytes. This is useful primarily for clearing the buffer by
-      calling :code:`reduce(0)`.
+      Roll back the output to have :arg:`n` valid (used) bytes.
+
+   .. function:: FixedBufferWriter & reset()
+
+      Equivalent to :code:`reduce(0)`, provide for convenience.
 
    .. function:: FixedBufferWriter auxWriter(size_t reserve = 0)
 
@@ -841,7 +913,8 @@ Reference
 
    This is a convenience class which is a subclass of :class:`FixedBufferWriter`. It which creates a
    buffer as a member rather than having an external buffer that is passed to the instance. The
-   buffer is :arg:`N` bytes long.
+   buffer is :arg:`N` bytes long. This differs from its super class only in the constructor, which
+   is only a default constructor.
 
    .. function:: LocalBufferWriter::LocalBufferWriter()
 
@@ -857,3 +930,22 @@ Reference
 
    A family of overloads that perform formatted output on a :class:`BufferWriter`. The set of types
    supported can be extended by defining an overload of this function for the types.
+
+.. function:: template < typename ... Args > \
+               std::string& bwprint(std::string & s, string_view format, Args &&... args)
+
+   Generate formatted output in :arg:`s` based on the :arg:`format` and arguments :arg:`args`. The
+   string :arg:`s` is adjusted in size to be the exact length as required by the output. If the
+   string already had enough capacity it is not re-allocated, otherwise the resizing will cause
+   a re-allocation.
+
+.. function:: template < typename ... Args > \
+               std::string& bwprintv(std::string & s, string_view format, std::tuple<Args...> args)
+
+   Generate formatted output in :arg:`s` based on the :arg:`format` and :arg:`args`, which must be a
+   tuple of the arguments to use for the format. The string :arg:`s` is adjusted in size to be the
+   exact length as required by the output. If the string already had enough capacity it is not
+   re-allocated, otherwise the resizing will cause a re-allocation.
+
+   This overload is used primarily as a back end to another function which takes the arguments for
+   the formatting independently.
