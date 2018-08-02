@@ -10,6 +10,8 @@ else
   exit 1
 fi
 
+git pull
+
 rm -rf *
 cp -r ${SRCDIR}/docbuild/html/* .
 cp -r ${SRCDIR}/docbuild/html/.nojekyll .
