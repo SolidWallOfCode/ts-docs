@@ -1,0 +1,140 @@
+@startuml
+@enduml
+
+@startuml
+   legend
+      Base Case
+   endlegend
+   actor Client
+   entity Upstream
+   hide footbox
+
+   Client -[#green]> Upstream : <font color="green">//TCP Connect//</font>
+   group Optional
+      Client -[#blue]> Upstream : <font color="blue">//TLS Handshake//</font>
+   end
+@enduml
+
+@startuml
+   legend
+      Terminating Proxy
+   endlegend
+   actor Client
+   participant Proxy
+   entity Upstream
+   hide footbox
+
+   Client -[#green]> Proxy : <font color="green">//TCP Connect//</font>
+   group Optional
+      Client -[#blue]> Upstream : <font color="blue">//TLS Handshake//</font>
+   end
+   Proxy -[#green]> Upstream : <font color="green">//TCP Connect//</font>
+   group Optional
+      Proxy -[#blue]> Upstream : <font color="blue">//TLS Handshake//</font>
+   end
+@enduml
+
+@startuml
+   legend
+      Generic Proxy
+   endlegend
+   hide empty members
+   cloud Cloud
+   actor Client
+   node "Ingress Proxy" as Ingress
+   node "Peer Proxy" as Peer
+   entity Upstream
+
+   Client --> Ingress
+   Ingress <-> Cloud
+   Cloud <-> Peer
+   Peer -u-> Upstream
+
+@enduml
+
+@startuml
+   legend
+      TLS Explicit Proxy
+   endlegend
+   actor Client
+   participant Proxy
+   entity Upstream
+   hide footbox
+
+   Client -[#green]> Proxy : <font color="green">//TCP Connect//</font>
+   Client -[#red]> Proxy : <font color="red">HTTP ""CONNECT"" Upstream</font>
+   Proxy -[#green]> Upstream : <font color="green">//TCP Connect//</font>
+   Proxy -[#red]> Client : <font color="red">200 OK</font>
+   == Proxy Tunneling ==
+   Client -[#blue]-> Upstream : <font color="blue">//TLS Handshake//</font>
+@enduml
+
+@startuml
+   legend
+      TLS Implicit Proxy
+   endlegend
+   actor Client
+   participant Proxy
+   entity Upstream
+   hide footbox
+
+   Client -[#green]> Proxy : <font color="green">//TCP Connect//</font>
+   Client -[#blue]> Proxy : <font color="blue">TLS client ""HELLO""</font>
+   note over Proxy: Determine Upstream from ""HELLO""
+   Proxy -[#green]> Upstream : <font color="green">//TCP Connect//</font>
+   Proxy -[#blue]> Upstream : <font color="blue">TLS client ""HELLO""</font>
+   note left : Duplicate of original\nTLS client ""HELLO""
+   == Proxy Tunneling ==
+   Upstream -[#blue]-> Client : <font color="blue">TLS Server ""HELLO""</font>
+   Client <-[#blue]-> Upstream : <font color="blue">//continue TLS Handshake//</font>
+@enduml
+
+@startuml
+   legend
+      Explicit Proxy Bridge
+   endlegend
+   actor Client
+   participant "Ingress Proxy" as Ingress
+   participant "Peer Proxy" as Peer
+   entity Upstream
+   hide footbox
+
+   Client -[#green]> Ingress : <font color="green">//TCP Connect//</font>
+   Client -[#red]> Ingress : <font color="red">HTTP ""CONNECT"" Upstream</font>
+   Ingress -[#green]> Peer : <font color="green">//TCP Connect//</font>
+   Ingress -[#blue]> Peer : <font color="blue">//TLS Handshake//</font>
+   Ingress -[#red]> Peer : <font color="red">HTTP CONNECT Upstream</font>
+   Peer -[#green]> Upstream : <font color="green">//TCP Connect//</font>
+   Peer -[#red]> Ingress : <font color="red">200 OK</font>
+   == Peer Proxy Tunneling ==
+   Ingress -[#red]> Client : <font color="red">200 OK</font>
+   == Ingress Proxy Tunneling ==
+   Client <-[#blue]-> Upstream : <font color="blue">//TLS Handshake//</font>
+@enduml
+
+@startuml
+   legend
+      Implicit Proxy Bridge
+   endlegend
+   actor Client
+   participant "Ingress Proxy" as Ingress
+   participant "Peer Proxy" as Peer
+   entity Upstream
+   hide footbox
+
+   Client -[#green]> Ingress : <font color="green">//TCP Connect//</font>
+   Client -[#blue]> Ingress : <font color="blue">TLS client ""HELLO""</font>
+   note over Ingress: Determine Peer Proxy\nand Upstream from ""HELLO""
+   Ingress -[#green]> Peer : <font color="green">//TCP Connect//</font>
+   Ingress -[#blue]> Peer : <font color="blue">//TLS Handshake//</font>
+   Ingress -[#red]> Peer : <font color="red">HTTP CONNECT Upstream</font>
+   Peer -[#green]> Upstream : <font color="green">//TCP Connect//</font>
+   Peer -[#red]> Ingress : <font color="red">200 OK</font>
+   == Peer Proxy Tunneling ==
+   Ingress -[#blue]-> Upstream : <font color="blue">TLS client ""HELLO""</font>
+   note left : Duplicate of original\nTLS client ""HELLO""
+   == Ingress Proxy Tunneling ==
+   Upstream -[#blue]-> Client : <font color="blue">TLS Server ""HELLO""</font>
+   Client <-[#blue]-> Upstream : <font color="blue">//continue TLS Handshake//</font>
+@enduml
+
