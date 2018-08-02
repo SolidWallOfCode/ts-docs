@@ -8,9 +8,10 @@ PAPER         ?= letter
 BUILDDIR      ?= docbuild
 JAVA          ?= java
 PLANTUML_JAR  ?= ~/bin/plantuml.jar
+PLANTUML_ARGS ?=
 
 SBUILD = $(SPHINXBUILD) ${PAPEROPT_letter}
-PLANTUML = $(JAVA) -jar $(PLANTUML_JAR)
+PLANTUML = $(JAVA) -jar $(PLANTUML_JAR) $(PLANTUML_ARGS)
 IMAGEDIR = $(srcdir)/pix
 BUILD_IMAGEDIR = $(BUILDDIR)/html/_images
 UMLDIR = $(srcdir)/uml
@@ -34,7 +35,8 @@ html: uml $(BUILD_IMAGEDIR)/ts-projects.png
 
 uml: $(IMAGEDIR)/ts-projects.png\
 	 $(IMAGEDIR)/ts-api-action.png\
-	 $(IMAGEDIR)/cache-dir-sync.png
+	 $(IMAGEDIR)/cache-dir-sync.png \
+	$(IMAGEDIR)/layer-4-proxy.png 
 
 $(BUILD_IMAGEDIR)/ts-projects.png: $(IMAGEDIR)/ts-projects.png
 	@mkdir -p $(BUILD_IMAGEDIR)

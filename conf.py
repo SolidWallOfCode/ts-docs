@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+  # -*- coding: utf-8 -*-
 #
 # Apache Traffic Server documentation build configuration file, created by
 # sphinx-quickstart on Mon Mar  4 06:23:15 2013.
@@ -54,10 +54,11 @@ extensions = [ 'sphinx.ext.graphviz'
              , 'local'
              ]
 
+# Contains values that are dependent on configure.ac.
+execfile('local-config.py')
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
-plantuml = 'java -jar /home/amc/bin/plantuml.jar'
-plantuml_output_format='svg'
 
 # The suffix of source filenames.
 source_suffix = '.rst'
