@@ -1,5 +1,6 @@
 *.pyc
 *.png
 *.swp
+local-config.py
 docbuild/
 poc/cache_sm.dot
