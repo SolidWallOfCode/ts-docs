@@ -3,6 +3,7 @@
 !define ACTIVE #BBDDFF
 !define DONE #DDFFDD
 !define FALLOW #FFDDFF
+!define BLOCKED #FFCCCC
 
 !definelong GenericComponent(TAG, TITLE, TEXT, STATE="")
   Component TAG STATE [
@@ -12,74 +13,12 @@
   ]
 !enddefinelong
 
-package TsLuaConfig {
-  Component TsLuaConfigSchemaParser [
-    **Schema Parser and Generator**
-    ----
-    Parser for Lua configuration schemas.
-    C++ code generator.
-  ]
-  Component TsLuaConfigMetaSchema ACTIVE [
-    **MetaScheme for Lua Config Schemas**
-    ----
-    Lua schema that describes
-    Lua configuration schema.
-  ]
-  Component TsLuaConfigInternals ACTIVE [
-    **Internals**
-    Design of generated C++
-    configuration code.
-  ]
-  Component Errata ACTIVE [
-    **Errata**
-    ----
-    Update the ""ts::Errata"" library
-    to provide error reporting.
-  ]
-  TsLuaConfigSchemaParser ..> TsLuaConfigMetaSchema : Uses
-  TsLuaConfigSchemaParser ..> TsLuaConfigInternals : Requires
-  TsLuaConfigMetaSchema ..> TsLuaConfigSchemaParser : Generates
-  TsLuaConfigInternals ..> Errata : Requires
-}
-
-package L7R {
-  GenericComponent(L7_HostDB, "HTTP address resolution", "Resolve the upstream address\nfrom an HTTP request")
-  GenericComponent(HostDB_Stack, "HostDB Stack", "Enable a stack of\nresolvers for HostDB")
-  GenericComponent(NextHop, "NextHop Design", "A unified design for selecting\nthe upstream target.")
-
-  Component L7R [
-    **Layer 7 Routing**
-    ----
-    Resolve upstream target from
-    HTTP request in a unified
-    mechanism incorporating pod
-    and parent selection.
-  ]
-
-  L7R ..> L7_HostDB : Requires
-  L7R ..> HostDB_Stack : Requires
-  L7R ..> NextHop : Requires
-}
-
-package L4R {
-  Component L4R [
-    **Layer 4 Routing**
-    Control connections based on
-    L4 information, primarily
-    TLS and IP.
-  ]
-
-  Component TLS_Control ACTIVE [
-    **TLS Control**
-    ----
-    SNI Based Configuration.
-    TLS control during handshake.
-    Post TLS-handshake handling.
-  ]
-
-  L4R ..> TLS_Control : Requires
-  TLS_Control ..> TsLuaConfigInternals : Requires
-}
+Component Errata ACTIVE [
+  **Errata**
+  ----
+  Update the ""ts::Errata"" library
+  to provide error reporting.
+]
 
 package "Cache Tools" {
   Component POC ACTIVE [
@@ -123,7 +62,7 @@ package "Plugin Coordination" {
     Restructure thread initialization
     to be modular and reliable.
   ]
-  Component PluginHookFix [
+  Component PluginHookFix ACTIVE [
     **Plugin Hook Restructure**
     ----
     Modularize hook dispatch.
@@ -177,6 +116,9 @@ Package Logging {
    ""std::ostream"" like formatting to
    fixed buffers and MIOBuffers.
   ]
+  Component IOBufferChain DONE [
+    **IOBufferChain**
+  ]
   Component BodyFactory ACTIVE [
     **MIOBuffer in BodyFactory**
     ----
@@ -197,37 +139,12 @@ Package Logging {
     text from a plugin.
   ]
   BodyFactory ..> BufferWriter : Requires
+  BodyFactory ..> IOBufferChain : Requires
   LogFormatAPI ..> BodyFactory : Requires
   PluginLogTags ..> BodyFactory : Requires
 }
 
 package Testing {
-  Component AUTest DONE [
-    **AUTest**
-    ----
-    Python based
-    testing framework.
-  ]
-  Component UnitTesting DONE [
-    **C/C++ Unit Testing**
-    ----
-    Selected Catch.
-  ]
-  Component MicroServer DONE [
-    **<U+03bc>Server**
-    ----
-    Simple HTTP server that responds
-    to requests using a file of
-    requests <U+21D4> responses.
-  ]
-  Component MicroDNS ACTIVE [
-    **<U+03bc>Nameserver**
-    ----
-    Simple nameserver that responds
-    to DNS queries using round robin
-    from a list of IP addresses.
-  ]
-
   Component ReplayTesting ACTIVE [
     **Replay Testing**
     ----
@@ -236,7 +153,7 @@ package Testing {
 
   GenericComponent(TransactionTesting,"Transaction Testing", "Testing by directly using\nreplay files.", ACTIVE)
 
-  Component TrafficCapture ACTIVE [
+  Component TrafficCapture DONE [
     **Traffic Capture**
     ----
     Capture live traffic in
@@ -253,57 +170,13 @@ package Testing {
     a production configuration.
   ]
 
-  TransactionTesting ..> AUTest : Requires
-  TransactionTesting ..> MicroServer : Requires
-  TransactionTesting ..> MicroDNS : Requires
   ReplayTesting ..> TransactionTesting : Requires
   ReplayTesting ..> TrafficCapture : Requires
   ConfigTesting ..> ReplayTesting : Requires
   ProdValidator ..> ReplayTesting : Requires
 }
 
-package "Http2" {
-  Component OutboundRestructure [
-    **Restructure Outbound**
-    ----
-    Restructure outbound connection
-    handling for modularity.
-    Similar to TS-3612.
-  ]
-  Component Http2Outbound [
-    **HTTP/2 Outbound**
-    ----
-    Enable TS to make outbound
-    HTTP/2 connections.
-  ]
-  Http2Outbound ..> OutboundRestructure : Requires
-}
-
 package Core {
-  Component EventLoop DONE [
-    **Event Loop**
-    ----
-    Change the event loop to not
-    always use a condition var
-    wait, but be able to stall
-    on I/O wait.
-  ]
-  Component EventLoopMetrics ACTIVE [
-    **Event Loop Metrics**
-    ----
-    Provide metrics for monitoring
-    event loop performance.
-    * Better documentation
-    * Experiment with Circonus
-  ]
-  Component MgmtRPC [
-    **Management RPC**
-    ----
-    Refactor the management RPC.
-    * Make it a clean library.
-    * Remove artificial delays.
-    * Full bidirectional support.
-  ]
   Component Chrono FALLOW [
     **Use std::chrono**
     ----
@@ -314,15 +187,14 @@ package Core {
   GenericComponent(filesystem, "C++17 filesystem", "A simplified but compatible\nversion of the C++17\nfilesystem library")
   GenericComponent(cryptohash, "Crypo Hash Cleanup", "Better organized and more\nmodular crypto hash support")
   GenericComponent(live_restart, "Live Restart", "A mechanism to share the cache\nbetween two instances to\nallow live restarts")
-  GenericComponent(compacting_arena, "Compacting Arena",    "A memory block allocator for\nuse in allocating container\nobjects that provides compaction.")
+  GenericComponent(compacting_arena, "MemArena",    "A memory block allocator for\nuse in allocating container\nobjects that provides compaction.", BLOCKED)
   GenericComponent(bijection, "Bijection", "An underorded bijection.\nA two way mapping between\nintegers and strings")
 
-  EventLoopMetrics ..> EventLoop : Requires
   bijection ..> compacting_arena : Requires
 }
 
 package Plugins {
-  Component ExportTSLib [
+  Component ExportTSLib BLOCKED [
     **Export TS Lib**
     ----
     Make more of the TS libraries
@@ -343,86 +215,10 @@ package Plugins {
   ]
 
   GenericComponent(plugin_arena, "Transaction Arena", "A memory arena in the\nHttpSM for use by\nplugins")
-
-  PluginMgmt ..> MgmtRPC : Requires
 }
-
-' ====== Other People ======
-package OtherPeople {
-  Component QUIC ACTIVE [
-    **QUIC**
-    ----
-    Add support for QUIC.
-  ]
-  Component FreeLists [
-    **Memory Allocation**
-    ----
-    Experimenting with
-    * Removing global free lists.
-    * Removing proxy allocators.
-    * jemallo
-  ]
-  Component TS_RUN_ROOT DONE [
-    **TS_RUN_ROOT**
-    ----
-    Enable TS to read a path
-    configuration file which
-    specifies the locations
-    of the configuration files.
-  ]
-  Component TSVConnArgs [
-    **Arg slots for TSVConn**
-    ----
-    Add argument slots to ""TSVConn""
-    to enable passing data from
-    early intervention to
-    transactions processing.
-  ]
-  Component ConcurrentContainers [
-    **Concurrent Containers**
-    ----
-    Select concurrent containers for
-    use in TS and convert appropriate
-    locked structures.
-  ]
-  QUIC -[hidden]- TS_RUN_ROOT
-  TS_RUN_ROOT -[hidden]- TSVConnArgs
-}
-
-TS_RUN_ROOT ..> Testing : Relates
-L4R ..> TSVConnArgs : Requires
 
 ' Fake links to control layout
-TsLuaConfig -[hidden]-- Logging
 Logging -[hidden]-- "Cache Tools"
 "Cache Tools" -[hidden]-- "Plugin Coordination"
-"Plugin Coordination" -[hidden]-- "Http2"
 
-Plugins -[hidden]-- L7R
-L7R -[hidden]-- L4R
-L4R -[hidden]-- "Http2"
-
-OtherPeople -[hidden]- Testing
 @enduml
-
-/'
-
-  subgraph {
-    RPC_refactor [shape=folder];
-    RPC_library [shape=rect style=rounded];
-    RPC_manager_no_delay [shape=rect style=rounded];
-    RPC_bidirectional [shape=rect style=rounded];
-    RPC_plugin [shape=rect style=rounded];
-
-    RPC_refactor -> {RPC_library RPC_manager_no_delay RPC_bidirectional RPC_plugin};
-    RPC_library -> RPC_manager_no_delay;
-    RPC_library -> RPC_bidirectional;
-    RPC_bidirectional -> RPC_plugin;
-  }
-
-}
-
-digraph {
-  live_restart [shape=folder]
-}
-'/
