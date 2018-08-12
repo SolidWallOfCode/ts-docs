@@ -13,12 +13,94 @@
   ]
 !enddefinelong
 
-Component Errata ACTIVE [
-  **Errata**
-  ----
-  Update the ""ts::Errata"" library
-  to provide error reporting.
-]
+package Core {
+  Component MemArena_make BLOCKED [
+    ""MemArena::make""
+    ----
+    Add a constructor forward
+    method to MemArena.
+  ]
+
+  Component Chrono FALLOW [
+    **Use std::chrono**
+    ----
+    Change time mechanisms to use
+    ""std::chrono"".
+  ]
+
+  Component event_chrono [
+    scheduling overloads
+    ----
+    Add overloads to scheduling
+    to use ""std::chrono"".
+  ]
+
+  GenericComponent(IOBufferChain, "IOBufferChain", "Container for chains\nof IOBuffer blocks", DONE)
+
+  GenericComponent(bw_header, "BufferWriter Headers", "Restructure headers for\nBufferWriter")
+  GenericComponent(bw_shift, "BufferWriter::shift", "Add internal shift\nright method")
+  GenericComponent(bw_iobuffer, "IOBufferWriter", "Based on IOBufferChain")
+  GenericComponent(bw_lambda, "BufferWriter Lambda", "Support lambdas for\nembedded format functions")
+  GenericComponent(bw_printf, "BufferWriter printf", "Parse printf formats")
+  GenericComponent(bw_log, "BufferWriter Log format", "Parse logging formats")
+
+  GenericComponent(filesystem, "C++17 filesystem", "A simplified but compatible\nversion of the C++17\nfilesystem library")
+  GenericComponent(cryptohash, "Crypo Hash Cleanup", "Better organized and more\nmodular crypto hash support")
+  GenericComponent(live_restart, "Live Restart", "A mechanism to share the cache\nbetween two instances to\nallow live restarts")
+  GenericComponent(bijection, "Bijection", "An underorded bijection.\nA two way mapping between\nintegers and strings")
+  GenericComponent(lexicon, "Lexicon", "A mapping of names\nto and from strings\nfor enumeration support")
+  GenericComponent(rpc, "CLI RPC", "Replace management RPC\nwith third party library")
+  GenericComponent(IntrusiveHashMap, "IntrusiveHashMap", "Refresh and replace TSHashTable", BLOCKED)
+
+  bijection --> IntrusiveHashMap
+  lexicon --> bijection
+  Chrono --> event_chrono
+
+  bw_shift --> bw_header
+  bw_iobuffer --> bw_shift
+  bw_iobuffer --> IOBufferChain
+  bw_log --> bw_lambda
+}
+
+package Plugins {
+  Component ExportTSLib BLOCKED [
+    **Export TS Lib**
+    ----
+    Make more of the TS libraries
+    available to plugins.
+  ]
+  Component PluginMgmt [
+    **CLI Plugin Management**
+    ----
+    Extend the plugin message
+    mechanism to provide management
+    of plugins from the command line.
+  ]
+  Component CPPAPI [
+    **CPP API**
+    ----
+    This needs refreshing and
+    extension.
+  ]
+
+  GenericComponent(plugin_arena, "Transaction Arena", "A memory arena in the\nHttpSM for use by\nplugins")
+
+  plugin_arena --> MemArena_make
+}
+
+Package "Configuration" {
+  Component Errata_Update ACTIVE [
+    **Errata**
+    ----
+    Update the ""ts::Errata"" library
+    to provide error reporting.
+  ]
+  GenericComponent(tsconfig_remove, "Replace tsconfig", "Convert to YAML")
+
+  Errata_Update --> MemArena_make
+  Errata_Update --> IntrusiveHashMap
+  tsconfig_remove --> Errata_Update
+}
 
 package "Cache Tools" {
   Component POC ACTIVE [
@@ -94,7 +176,6 @@ package "Plugin Coordination" {
     Provide control of plugin
     callback ordering.
   ]
-  note right of PluginPriority : Ready for production\ntesting in Y! ATS 5.3
   Component PluginReload [
     **Plugin Reload**
     ----
@@ -116,9 +197,6 @@ Package Logging {
    ""std::ostream"" like formatting to
    fixed buffers and MIOBuffers.
   ]
-  Component IOBufferChain DONE [
-    **IOBufferChain**
-  ]
   Component BodyFactory ACTIVE [
     **MIOBuffer in BodyFactory**
     ----
@@ -138,8 +216,9 @@ Package Logging {
     Enable logging tags that get
     text from a plugin.
   ]
-  BodyFactory ..> BufferWriter : Requires
-  BodyFactory ..> IOBufferChain : Requires
+
+  BodyFactory ..> bw_log : Requires
+  BodyFactory ..> bw_iobuffer : Requires
   LogFormatAPI ..> BodyFactory : Requires
   PluginLogTags ..> BodyFactory : Requires
 }
@@ -176,49 +255,9 @@ package Testing {
   ProdValidator ..> ReplayTesting : Requires
 }
 
-package Core {
-  Component Chrono FALLOW [
-    **Use std::chrono**
-    ----
-    Change time mechanisms to use
-    ""std::chrono"".
-  ]
-
-  GenericComponent(filesystem, "C++17 filesystem", "A simplified but compatible\nversion of the C++17\nfilesystem library")
-  GenericComponent(cryptohash, "Crypo Hash Cleanup", "Better organized and more\nmodular crypto hash support")
-  GenericComponent(live_restart, "Live Restart", "A mechanism to share the cache\nbetween two instances to\nallow live restarts")
-  GenericComponent(compacting_arena, "MemArena",    "A memory block allocator for\nuse in allocating container\nobjects that provides compaction.", BLOCKED)
-  GenericComponent(bijection, "Bijection", "An underorded bijection.\nA two way mapping between\nintegers and strings")
-
-  bijection ..> compacting_arena : Requires
-}
-
-package Plugins {
-  Component ExportTSLib BLOCKED [
-    **Export TS Lib**
-    ----
-    Make more of the TS libraries
-    available to plugins.
-  ]
-  Component PluginMgmt [
-    **CLI Plugin Management**
-    ----
-    Extend the plugin message
-    mechanism to provide management
-    of plugins from the command line.
-  ]
-  Component CPPAPI [
-    **CPP API**
-    ----
-    This needs refreshing and
-    extension.
-  ]
-
-  GenericComponent(plugin_arena, "Transaction Arena", "A memory arena in the\nHttpSM for use by\nplugins")
-}
-
 ' Fake links to control layout
-Logging -[hidden]-- "Cache Tools"
-"Cache Tools" -[hidden]-- "Plugin Coordination"
+"Core" -[hidden]-- "Plugin Coordination"
+"Plugin Coordination" -[hidden]- "Plugins"
+'"Core" -[hidden]- "Cache Tools"
 
 @enduml
