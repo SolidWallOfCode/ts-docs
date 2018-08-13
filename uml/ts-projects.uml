@@ -13,251 +13,239 @@
   ]
 !enddefinelong
 
-package Core {
-  Component MemArena_make BLOCKED [
-    ""MemArena::make""
-    ----
-    Add a constructor forward
-    method to MemArena.
-  ]
+Component MemArena_make BLOCKED [
+  ""MemArena::make""
+  ----
+  Add a constructor forward
+  method to MemArena.
+]
 
-  Component Chrono FALLOW [
-    **Use std::chrono**
-    ----
-    Change time mechanisms to use
-    ""std::chrono"".
-  ]
+Component Chrono FALLOW [
+  **Use std::chrono**
+  ----
+  Change time mechanisms to use
+  ""std::chrono"".
+]
 
-  Component event_chrono [
-    scheduling overloads
-    ----
-    Add overloads to scheduling
-    to use ""std::chrono"".
-  ]
+Component event_chrono [
+  scheduling overloads
+  ----
+  Add overloads to scheduling
+  to use ""std::chrono"".
+]
 
-  GenericComponent(IOBufferChain, "IOBufferChain", "Container for chains\nof IOBuffer blocks", DONE)
+GenericComponent(IOBufferChain, "IOBufferChain", "Container for chains\nof IOBuffer blocks", DONE)
 
-  GenericComponent(bw_header, "BufferWriter Headers", "Restructure headers for\nBufferWriter")
-  GenericComponent(bw_shift, "BufferWriter::shift", "Add internal shift\nright method")
-  GenericComponent(bw_iobuffer, "IOBufferWriter", "Based on IOBufferChain")
-  GenericComponent(bw_lambda, "BufferWriter Lambda", "Support lambdas for\nembedded format functions")
-  GenericComponent(bw_printf, "BufferWriter printf", "Parse printf formats")
-  GenericComponent(bw_log, "BufferWriter Log format", "Parse logging formats")
+GenericComponent(bw_header, "BufferWriter Headers", "Restructure headers for\nBufferWriter")
+GenericComponent(bw_shift, "BufferWriter::shift", "Add internal shift\nright method")
+GenericComponent(bw_iobuffer, "IOBufferWriter", "Based on IOBufferChain")
+GenericComponent(bw_lambda, "BufferWriter Lambda", "Support lambdas for\nembedded format functions")
+GenericComponent(bw_printf, "BufferWriter printf", "Parse printf formats")
+GenericComponent(bw_log, "BufferWriter Log format", "Parse logging formats")
 
-  GenericComponent(filesystem, "C++17 filesystem", "A simplified but compatible\nversion of the C++17\nfilesystem library")
-  GenericComponent(cryptohash, "Crypo Hash Cleanup", "Better organized and more\nmodular crypto hash support")
-  GenericComponent(live_restart, "Live Restart", "A mechanism to share the cache\nbetween two instances to\nallow live restarts")
-  GenericComponent(bijection, "Bijection", "An underorded bijection.\nA two way mapping between\nintegers and strings")
-  GenericComponent(lexicon, "Lexicon", "A mapping of names\nto and from strings\nfor enumeration support")
-  GenericComponent(rpc, "CLI RPC", "Replace management RPC\nwith third party library")
-  GenericComponent(IntrusiveHashMap, "IntrusiveHashMap", "Refresh and replace TSHashTable", BLOCKED)
+GenericComponent(filesystem, "C++17 filesystem", "A simplified but compatible\nversion of the C++17\nfilesystem library")
+GenericComponent(cryptohash, "Crypo Hash Cleanup", "Better organized and more\nmodular crypto hash support")
+GenericComponent(rolling_restart, "Rolling restart", "A mechanism to share the cache\nbetween two instances to\nallow live restarts")
+GenericComponent(bijection, "Bijection", "An underorded bijection.\nA two way mapping between\nintegers and strings")
+GenericComponent(lexicon, "Lexicon", "A mapping of names\nto and from strings\nfor enumeration support")
+GenericComponent(rpc, "CLI RPC", "Replace management RPC\nwith third party library")
+GenericComponent(IntrusiveHashMap, "IntrusiveHashMap", "Refresh and replace TSHashTable", BLOCKED)
 
-  bijection --> IntrusiveHashMap
-  lexicon --> bijection
-  Chrono --> event_chrono
+bijection --> IntrusiveHashMap
+lexicon --> bijection
+Chrono --> event_chrono
 
-  bw_shift --> bw_header
-  bw_iobuffer --> bw_shift
-  bw_iobuffer --> IOBufferChain
-  bw_log --> bw_lambda
-}
+bw_shift --> bw_header
+bw_iobuffer --> bw_shift
+bw_iobuffer --> IOBufferChain
+bw_log --> bw_lambda
 
-package Plugins {
-  Component ExportTSLib BLOCKED [
-    **Export TS Lib**
-    ----
-    Make more of the TS libraries
-    available to plugins.
-  ]
-  Component PluginMgmt [
-    **CLI Plugin Management**
-    ----
-    Extend the plugin message
-    mechanism to provide management
-    of plugins from the command line.
-  ]
-  Component CPPAPI [
-    **CPP API**
-    ----
-    This needs refreshing and
-    extension.
-  ]
+Component ExportTSLib BLOCKED [
+  **Export TS Lib**
+  ----
+  Make more of the TS libraries
+  available to plugins.
+]
+Component PluginMgmt [
+  **CLI Plugin Management**
+  ----
+  Extend the plugin message
+  mechanism to provide management
+  of plugins from the command line.
+]
+Component CPPAPI [
+  **CPP API**
+  ----
+  This needs refreshing and
+  extension.
+]
 
-  GenericComponent(plugin_arena, "Transaction Arena", "A memory arena in the\nHttpSM for use by\nplugins")
+GenericComponent(plugin_arena, "Transaction Arena", "A memory arena in the\nHttpSM for use by\nplugins")
 
-  plugin_arena --> MemArena_make
-}
+plugin_arena --> MemArena_make
 
-Package "Configuration" {
-  Component Errata_Update ACTIVE [
-    **Errata**
-    ----
-    Update the ""ts::Errata"" library
-    to provide error reporting.
-  ]
-  GenericComponent(tsconfig_remove, "Replace tsconfig", "Convert to YAML")
+Component Errata_Update ACTIVE [
+  **Errata**
+  ----
+  Update the ""ts::Errata"" library
+  to provide error reporting.
+]
+GenericComponent(tsconfig_remove, "Replace tsconfig", "Convert to YAML")
 
-  Errata_Update --> MemArena_make
-  Errata_Update --> IntrusiveHashMap
-  tsconfig_remove --> Errata_Update
-}
+Errata_Update --> MemArena_make
+Errata_Update --> IntrusiveHashMap
+tsconfig_remove --> Errata_Update
 
-package "Cache Tools" {
-  Component POC ACTIVE [
-    **Partial Object Caching**
-    ----
-    Cache partial objects.
-    Handling for
-    * Stale While Revalidate
-    * Stale While Error
-  ]
-  Component CacheTool ACTIVE [
-    **Cache Tool**
-    ----
-    Examination of spans, stripes
-    and directories.
-    Manipulation of spans and stripes.
-    Direct cache span initialization.
-  ]
-  Component CacheUpgrade [
-    **Cache Internals Upgrade**
-    ----
-    More robust span / stripe handling.
-    Remove dependency on AOS setting.
-    Store critical span/stripe data on disk.
-  ]
-  Component CAT [
-    **Cache API Toolkit**
-    ----
-    Plugin API for cache
-    operation control.
-  ]
-  CAT ..> POC : Requires
-  CAT --> CacheTool: After
-  CacheUpgrade ..> CacheTool : Requires
-}
+Component POC ACTIVE [
+  **Partial Object Caching**
+  ----
+  Cache partial objects.
+  Handling for
+  * Stale While Revalidate
+  * Stale While Error
+]
+Component CacheTool ACTIVE [
+  **Cache Tool**
+  ----
+  Examination of spans, stripes
+  and directories.
+  Manipulation of spans and stripes.
+  Direct cache span initialization.
+]
+Component CacheUpgrade [
+  **Cache Internals Upgrade**
+  ----
+  More robust span / stripe handling.
+  Remove dependency on AOS setting.
+  Store critical span/stripe data on disk.
+]
+Component CAT [
+  **Cache API Toolkit**
+  ----
+  Plugin API for cache
+  operation control.
+]
+CAT ..> POC : Requires
+CAT --> CacheTool: After
+CacheUpgrade ..> CacheTool : Requires
 
-package "Plugin Coordination" {
-  Component ThreadInitialization DONE [
-    **Thread Initialization**
-    ----
-    Restructure thread initialization
-    to be modular and reliable.
-  ]
-  Component PluginHookFix ACTIVE [
-    **Plugin Hook Restructure**
-    ----
-    Modularize hook dispatch.
-  ]
-  Component PluginTracking [
-    **Plugin Tracking**
-    ----
-    Track source
-    of continuations.
-  ]
-  Component PluginIntrospection [
-    **Plugin Introspection**
-    ----
-    Enable plugins to discover
-    and access other plugins.
-  ]
-  Component PluginControl [
-    **Plugin Control**
-    ----
-    Enable plugins to control
-    dispatch of other plugins
-    callbacks. This includes
-    inspecting and manipulating
-    callbacks on hooks.
-  ]
-  Component PluginPriority [
-    **Plugin Priority**
-    ----
-    Provide control of plugin
-    callback ordering.
-  ]
-  Component PluginReload [
-    **Plugin Reload**
-    ----
-    Dynamically reload plugins.
-  ]
-  PluginTracking ..> PluginHookFix : Requires
-  PluginTracking ..> ThreadInitialization : Requires
-  PluginReload ..> PluginControl : Requires
-  PluginReload --> PluginPriority : After
-  PluginPriority ..> PluginIntrospection : Requires
-  PluginControl ..> PluginIntrospection : Requires
-  PluginIntrospection ..> PluginTracking : Requires
-}
+Component ThreadInitialization DONE [
+  **Thread Initialization**
+  ----
+  Restructure thread initialization
+  to be modular and reliable.
+]
+Component PluginHookFix ACTIVE [
+  **Plugin Hook Restructure**
+  ----
+  Modularize hook dispatch.
+]
+Component PluginTracking [
+  **Plugin Tracking**
+  ----
+  Track source
+  of continuations.
+]
+Component PluginIntrospection [
+  **Plugin Introspection**
+  ----
+  Enable plugins to discover
+  and access other plugins.
+]
+Component PluginControl [
+  **Plugin Control**
+  ----
+  Enable plugins to control
+  dispatch of other plugins
+  callbacks. This includes
+  inspecting and manipulating
+  callbacks on hooks.
+]
+Component PluginPriority [
+  **Plugin Priority**
+  ----
+  Provide control of plugin
+  callback ordering.
+]
+Component PluginReload [
+  **Plugin Reload**
+  ----
+  Dynamically reload plugins.
+]
+PluginTracking ..> PluginHookFix : Requires
+PluginTracking ..> ThreadInitialization : Requires
+PluginReload ..> PluginControl : Requires
+PluginReload --> PluginPriority : After
+PluginPriority ..> PluginIntrospection : Requires
+PluginControl ..> PluginIntrospection : Requires
+PluginIntrospection ..> PluginTracking : Requires
 
-Package Logging {
-  Component BufferWriter DONE [
-   **BufferWriter**
-   ----
-   ""std::ostream"" like formatting to
-   fixed buffers and MIOBuffers.
-  ]
-  Component BodyFactory ACTIVE [
-    **MIOBuffer in BodyFactory**
-    ----
-    Use ""MIOBuffer"" in
-    Body Factory.
-  ]
-  Component LogFormatAPI [
-    **Log Formatting API**
-    ----
-    Enable plugins to generate text
-    from logging formats using
-    transaction data.
-  ]
-  Component PluginLogTags [
-    **Plugin Log Tags**
-    ----
-    Enable logging tags that get
-    text from a plugin.
-  ]
+Component BufferWriter DONE [
+ **BufferWriter**
+ ----
+ ""std::ostream"" like formatting to
+ fixed buffers and MIOBuffers.
+]
+Component BodyFactory ACTIVE [
+  **MIOBuffer in BodyFactory**
+  ----
+  Use ""MIOBuffer"" in
+  Body Factory.
+]
+Component LogFormatAPI [
+  **Log Formatting API**
+  ----
+  Enable plugins to generate text
+  from logging formats using
+  transaction data.
+]
+Component PluginLogTags [
+  **Plugin Log Tags**
+  ----
+  Enable logging tags that get
+  text from a plugin.
+]
 
-  BodyFactory ..> bw_log : Requires
-  BodyFactory ..> bw_iobuffer : Requires
-  LogFormatAPI ..> BodyFactory : Requires
-  PluginLogTags ..> BodyFactory : Requires
-}
+BodyFactory ..> bw_log : Requires
+BodyFactory ..> bw_iobuffer : Requires
+LogFormatAPI ..> BodyFactory : Requires
+PluginLogTags ..> BodyFactory : Requires
 
-package Testing {
-  Component ReplayTesting ACTIVE [
-    **Replay Testing**
-    ----
-    Replay captured live traffic.
-  ]
+Component ReplayTesting ACTIVE [
+  **Replay Testing**
+  ----
+  Replay captured live traffic.
+]
 
-  GenericComponent(TransactionTesting,"Transaction Testing", "Testing by directly using\nreplay files.", ACTIVE)
+GenericComponent(TransactionTesting,"Transaction Testing", "Testing by directly using\nreplay files.", ACTIVE)
 
-  Component TrafficCapture DONE [
-    **Traffic Capture**
-    ----
-    Capture live traffic in
-    session / transaction based
-    format.
-  ]
+Component TrafficCapture DONE [
+  **Traffic Capture**
+  ----
+  Capture live traffic in
+  session / transaction based
+  format.
+]
 
-  GenericComponent(ProdValidator, "Production Validation", "Validate required properties of\nproduction servers.")
+GenericComponent(ProdValidator, "Production Validation", "Validate required properties of\nproduction servers.")
 
-  Component ConfigTesting [
-    **Configuration Testing**
-    ----
-    Validate correct functioning of
-    a production configuration.
-  ]
+Component ConfigTesting [
+  **Configuration Testing**
+  ----
+  Validate correct functioning of
+  a production configuration.
+]
 
-  ReplayTesting ..> TransactionTesting : Requires
-  ReplayTesting ..> TrafficCapture : Requires
-  ConfigTesting ..> ReplayTesting : Requires
-  ProdValidator ..> ReplayTesting : Requires
-}
+ReplayTesting ..> TransactionTesting : Requires
+ReplayTesting ..> TrafficCapture : Requires
+ConfigTesting ..> ReplayTesting : Requires
+ProdValidator ..> ReplayTesting : Requires
 
 ' Fake links to control layout
-"Core" -[hidden]-- "Plugin Coordination"
-"Plugin Coordination" -[hidden]- "Plugins"
-'"Core" -[hidden]- "Cache Tools"
+cryptohash -[hidden]-- "CPPAPI"
+"CPPAPI" -[hidden]-- "CLI RPC"
+"CLI RPC" -[hidden]-- "CLI Plugin Management"
+"CLI Plugin Management" -[hidden]-- "Rolling restart"
+rolling_restart -[hidden]-- "C++17 filesystem"
 
 @enduml
