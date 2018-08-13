@@ -9,7 +9,7 @@ BUILDDIR      ?= docbuild
 JAVA          ?= java
 PLANTUML_JAR  ?= ~/bin/plantuml.jar
 PLANTUML_ARGS ?=
-REALPATH       = $(if $(WINDIR), 'cygpath --absolute --windows', 'realpath')
+REALPATH       = $(if $(WINDIR), cygpath --absolute --windows, realpath)
 
 SBUILD = $(SPHINXBUILD) ${PAPEROPT_letter}
 PLANTUML = $(JAVA) -jar $(PLANTUML_JAR) $(PLANTUML_ARGS)
