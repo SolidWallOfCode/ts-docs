@@ -48,17 +48,12 @@ GenericComponent(cryptohash, "Crypo Hash Cleanup", "Better organized and more\nm
 GenericComponent(rolling_restart, "Rolling restart", "A mechanism to share the cache\nbetween two instances to\nallow live restarts")
 GenericComponent(bijection, "Bijection", "An underorded bijection.\nA two way mapping between\nintegers and strings")
 GenericComponent(lexicon, "Lexicon", "A mapping of names\nto and from strings\nfor enumeration support")
-GenericComponent(rpc, "CLI RPC", "Replace management RPC\nwith third party library")
+GenericComponent(cli_rpc, "CLI RPC", "Replace management RPC\nwith third party library")
 GenericComponent(IntrusiveHashMap, "IntrusiveHashMap", "Refresh and replace TSHashTable", BLOCKED)
 
 bijection --> IntrusiveHashMap
 lexicon --> bijection
 Chrono --> event_chrono
-
-bw_shift --> bw_header
-bw_iobuffer --> bw_shift
-bw_iobuffer --> IOBufferChain
-bw_log --> bw_lambda
 
 Component ExportTSLib BLOCKED [
   **Export TS Lib**
@@ -90,7 +85,9 @@ Component Errata_Update ACTIVE [
   Update the ""ts::Errata"" library
   to provide error reporting.
 ]
+
 GenericComponent(tsconfig_remove, "Replace tsconfig", "Convert to YAML")
+GenericComponent(tshashtable_remove, "Replace TSHashTable", "Convert to IntrusiveHashMap")
 
 Errata_Update --> MemArena_make
 Errata_Update --> IntrusiveHashMap
@@ -206,10 +203,19 @@ Component PluginLogTags [
   text from a plugin.
 ]
 
+bw_shift --> bw_header
+bw_iobuffer --> bw_shift
+bw_iobuffer --> IOBufferChain
+bw_header --> BufferWriter
+bw_log --> bw_lambda
+bw_lambda --> bw_header
 BodyFactory ..> bw_log : Requires
 BodyFactory ..> bw_iobuffer : Requires
 LogFormatAPI ..> BodyFactory : Requires
 PluginLogTags ..> BodyFactory : Requires
+bw_printf --> bw_header
+
+tshashtable_remove --> IntrusiveHashMap
 
 Component ReplayTesting ACTIVE [
   **Replay Testing**
@@ -242,10 +248,11 @@ ConfigTesting ..> ReplayTesting : Requires
 ProdValidator ..> ReplayTesting : Requires
 
 ' Fake links to control layout
-cryptohash -[hidden]-- "CPPAPI"
-"CPPAPI" -[hidden]-- "CLI RPC"
-"CLI RPC" -[hidden]-- "CLI Plugin Management"
-"CLI Plugin Management" -[hidden]-- "Rolling restart"
-rolling_restart -[hidden]-- "C++17 filesystem"
+cryptohash -[hidden]-- CPPAPI
+CPPAPI -[hidden]-- cli_rpc
+cli_rpc -[hidden]-- PluginMgmt
+PluginMgmt -[hidden]-- rolling_restart
+PluginMgmt -[hidden]-- filesystem
+PluginMgmt -[hidden]-- ExportTSLib
 
 @enduml
