@@ -55,7 +55,7 @@ extensions = [ 'sphinx.ext.graphviz'
              ]
 
 # Contains values that are dependent on configure.ac.
-execfile('local-config.py')
+execfile('ext/local-config.py')
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

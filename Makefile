@@ -3,11 +3,11 @@
 .PHONY: help dirhtml singlehtml
 
 srcdir        ?= .
-SPHINXBUILD    = sphinx-build
+SPHINXBUILD    = python3 -m sphinx
 PAPER         ?= letter
 BUILDDIR      ?= docbuild
 JAVA          ?= java
-PLANTUML_JAR  ?= ~/bin/plantuml.jar
+PLANTUML_JAR  ?= $(HOME)/bin/plantuml.jar
 PLANTUML_ARGS ?=
 REALPATH       = $(if $(WINDIR), cygpath --absolute --windows, realpath)
 
@@ -29,7 +29,7 @@ help:
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
 
-html: uml $(BUILD_IMAGEDIR)/ts-projects.png
+html: uml $(BUILD_IMAGEDIR)/ts-projects.png ext/local-config.py
 	$(SBUILD) -d $(BUILDDIR)/doctrees -b html $(srcdir) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
@@ -59,3 +59,7 @@ clean:
 
 publish: clean html
 	$(SHELL) ./publish.sh
+
+ext/local-config.py : Makefile
+	@echo "plantuml = '$(JAVA) -jar $(PLANTUML_JAR)'" > ext/local-config.py
+	@echo "plantuml_output_format = 'svg'" >> ext/local-config.py
