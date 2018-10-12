@@ -129,3 +129,6 @@ For traffic replay, the basic engine will be exported as an independent open sou
 was good interest in this functionality. Leif wanted to do better performance testing and in
 particular try performance tests on previous version to get a better baseline. This is a good idea,
 the only impediment being finding someone who has the time to do it.
+
+Log file culling will be changed. A "min-count" configuration will be added to specify the minimum number of rolled log files to keep for each log file type. When disk headroom is below the minimum, rotated log files will be deleted as the oldest log file of the type with the largest ratio of rolled files to minimum file count. This, among other effects, will mean that deletion of a rolled log file will always pick a type that has more that it's minimum count before any other log file type that is at or below its minimum count. The solves the original problem, which was protecting smaller log files from get clipped at the same age as large log files.
+
