@@ -1,0 +1,249 @@
+2019 Spring Summit
+******************
+
+These are my notes from the 2019 Spring Summit in Beijing.
+
+Opening remarks
+================
+
+The primary message was we as a community need to do better about testing at production levels.
+Bringing ATS 8.0.x to production quality has been a long struggle and 8.1.x is not going well either.
+A problem I see is that as the production testing takes longer, the difference between the LTS release
+and the next release gets larger, which makes the whole process take longer. This is a degenerative
+spiral that will end badly.
+
+We need to do better about reviewing pull requests, in particular to get reviews across company
+silos. I think people should do this also because it's good for the reviewer.
+
+Plugin API and WebAssembly
+==========================
+
+Web assembly is the new fad of a byte code executor which can be run in a web browser. The
+ostensible point is to subsume the variety of languages currently used in active web pages to a
+single basic feature [#zend]_. Developers would be able to write code in a variety of lanagues, which is
+condensed to byte code and then executed in a engine based run time environment.
+
+Kit is concerned about the long term viability of the Lua community, given that luajit and other
+libraries have been abandoned. If ATS has a WebAssembly engine, then plugins could be done the
+same way.
+
+All of this is still very wide open - many different incompatible tool chains floating around.
+
+.. topic:: Commentary
+
+    It occurs to me as I write this that there may be some performance implications. It's hard to
+    believe the byte code machine can be as fast as native C code. We have some plugins where plugin
+    performance is a significant issue.
+
+QUIC Updates
+============
+
+*  HTTP over QUIC is now 'HTTP/3".
+
+    *  Multipath is coming, but final docuemnt not due until May 2020.
+
+*  Still targeting ATS 9.0.
+
+   *  OpenSSL doesn't support API required for QUIC (any supported release at this time). Masaori
+      said there are not current plans to ever support this API. This would require a custome openSSL
+      build for ATS to use openSSL and QUIC.
+
+   *  BoringSSL has QUIC API.
+
+   *  Results from IETF 103, 104 QUIC WG tested against 16 other versions.
+
+      * Depending HTTP/2 outbound for certain client side features.
+
+*  Working on performance improvements, implementation was very slow.
+
+*  Cleanup of loading certificates from "ssl_multicert.config".
+
+*  Review is going to be hard - already 43K lines changed.
+
+There was a long discussion on how and when to bring this in to master.
+
+*  A key issue is how many changes are expected in the future. Moving to master will mean a large
+   slow down in commit speed, because reviews will be required for each PR. Currently the QUIC branch
+   has 1300 commits over two years, which is a very high velocity for this project.
+
+One problem is that if QUIC doesn't go in to ATS 9, it will be another 12-18 months before it is
+released in a supported version.
+
+QUIC Deployment
+===============
+
+This was about actually deploying a variant of the ATS QUIC implementation (draft 12) in production.
+
+Reasons for QUIC
+
+*  RTT costs.
+
+*  Head of Line blocking
+
+*  Mobile connection switching vs. QUIC routing. Possibly load balancers can route by DCID embedded
+   in QUIC packets. Unclear this is commerciall available without local changes. DCID contents
+   encode the ``ET_NET`` thread in this deployment. ``UDP_NET`` threads get packets at random
+   and reschedule to the appropriate ``ET_NET`` thread.
+
+.. topic:: Commentary
+
+   I'm not sure how of much of a QUIC advantage these things are any more. Most (all?) of them have
+   been migrated back into TCP stacks. E.g. `MPTCP <http://multipath-tcp.org>`__.
+
+Using "BRR" congestion control vs. "New Reno" which is the IETF QUIC recommendation. Claims 10x
+speed improvement for transfering 1MB in 5% packet loss environment. This approximates some third
+world networks.
+
+Using `SSL_OP_NO_ANTI_REPLAY
+<https://mailarchive.ietf.org/arch/msg/tls/gDzOxgKQADVfItfC4NyW3ylr7yc>`__. Getting 79%
+~ 98% sessions reuse for 0-RTT.
+
+ATS Internals
+=============
+
+A discussion of ATS internal architecture (based on 6.0.x).
+
+AOI
+---
+
+Asynchronous I/O. This is a thread based module that does blocking I/O internally and provides
+an asynchronous interface using mutex locking and lockless queues.
+
+.. topic:: Commentary
+
+    Should look at using atomics instead of an insert mutex for the AIO queue. That might be
+    problematic for removes.
+
+.. topic:: Commentary
+
+    As far as oknet can tell, the AIO priority isn't used. This implies we may want to look at
+    removing the internal sorted priority queue, since it's not doing anything useful.
+
+There is also the native `Linux AIO <http://man7.org/linux/man-pages/man7/aio.7.html>`__ system.
+Structured similarly to `epoll <http://man7.org/linux/man-pages/man7/epoll.7.html>`__.
+
+DNS
+---
+
+Table of in flight DNS queries, with de-dupping. Each entry can have a list of continuations waiting
+on the results for that query. Can have dedicated DNS thread or share with an ``ET_NET`` thread.
+
+Transform Connections
+---------------------
+
+This is a chain of continuations that process data serially. There is a special :code:`TransformTerminus`
+created by the core which anchor the chain.
+
+.. topic:: Commentary
+
+   I need to get back to providing some more control in this chain. The idea at one point was to
+   be able to pass hints along about how the transform was modifying the content, particularly
+   with regard to length. There would be potential performance improvements if a transform could
+   mark itself as read only or length preserving.
+
+The diagrams were done in `OmniGraffle <https://www.omnigroup.com/omnigraffle>`__.
+
+Thread Scheduling
+=================
+
+The real point of all of this is to support thread affinity. The API is designed to make this
+behave in an orderly and expected way. Conceptually each thread can have an affine thread which
+belongs to a specific thread pool. This makes it possible to easily schedule a continuation on
+the same thread every time, particularly when switching threads. E.g. something does a DNS request
+and needs to be scheduled back to ``ET_NET`` from ``ET_DNS``.
+
+Talk about clean shutdown, primarily to avoid crashes from out of order clean up of static data.
+
+JEMalloc differences are small - order of 1-2% more for JEMalloc. However, having some locking
+issues under stress, still investigating.
+
+CWiki Changes
+=============
+
+Generally agreed. The concensus was
+
+*  If it's about the software, it goes in Sphinx in the code base.
+*  If it's about the community, it goes in the Wiki.
+*  Projects go to github projects.
+
+Plugin Reload
+=============
+
+Goal is to change plugin code by loading new versions of dynamic libraries, cleaning up the old
+ones. Old code needs to be removed to do cleanup and to release resources.
+
+One issue is the internal dynamic library loader tracks the loaded library files, not reloading if
+already loaded. This isn't affected by replacing the dynmaic library file.
+
+This change does Continuation context tracking, using the mechanism from the Plugin Coordination
+project. That is, each Continuation has a member that is a pointer to a context. When a Continuation
+is created the context is passed from the executing Continuation to the Continuation being created.
+
+This is only for remap plugins and remap configuration reload.
+
+The context objects are reference counted so that the context is preserved as long as a Continuation
+is using it. This leads to the problem with plugins that schedules events after a transaction or
+does a persistent periodic task. In this case it would be possible to accumulate a large number of
+old plugin context objects. There is also the problem that the plugin could have multiple instances
+running concurrently. To me this seems to overlap with Fei's work on clean shutdown. This is
+fundamentally the same, where a version of a plugin needs to shut down in a clean manner. Because
+this particular case it's less of an issue because there is already a hook for shutting down remap
+plugin instances.
+
+Leif went on at great length about optimizing the reloading of the dynamic libraries. It would be
+worthwhile to keep a modified time stamp for each dynamic library and only actually reload if that
+time has changed. This is because it's quite unusual for the dynamic library to change, it's a rare
+but critical case.
+
+In the long run we want to unify global and remap plugins, so there are only plugins. This means
+being able to reload any plugin, and having hooks for global plugins to indicate load, reload, and
+shutdown. The plugin context structures would also be unified. In the not so long term, we can look
+at providing hooks for global plugins to be informed of dynamic library reloads.
+
+Discussion on :code:`TSRemapOSResponse` - what is the use of this? Kit said it was because it is
+always called, in contrast to :code:`ReadResponseHdrHook` which is only called after a successful
+connection to the upstream. Using both enables detecting upstream connection failures.
+
+Discussion on whether this should be optional - is that useful? One argument is that it would ease
+transition. Is it sufficient to just make the "only reload if the timestamp changed" update?
+
+Parent Selection and traffic_manager
+====================================
+
+Project goal is to be able to have more complex selection criteria for upstream selection.
+
+Added ability mark upstream status, via :program:`traffic_ctl` or plugin API. This includes
+reasons for the status.
+
+A major problem has been the only data that flows *from* :program:`traffic_server` *to*
+:program:`traffic_manager` is statistics, and so that has been used. However this approach
+does not scale well. This is another aspect of how the internal RPC is messed up.
+
+Working on
+
+*  updating to YAML for "parent.config" and better integration with "remap.config".
+
+*  API support for tweaking selection strategies.
+
+The only thing that :program:`traffic_manager` provides that is not easily put into
+:program:`traffic_server` is the external process RPC. To me, this is once again wrapped up with
+the overall brokenness of the RPC.
+
+Discussion on how the external connectivity for the RPC - should it be done via the normal proxy
+ports or keep it as a specialized communication channel (e.g. via UNIX domain sockets). Long
+discussion about this. I think there is more concern about the complexity of the transport than is
+warrented. I also think even if the overall implementations are different between a custom channel
+and an HTTP based channel are different, the core implementation is identical. That part is the
+request parsing, dispatch, and response generation.
+
+Kit brought up the issue of :program:`traffic_manager` keeping the proxy ports open means the listen
+queue for the proxy ports is also maintained across :program:`traffic_server` restarts. It would be
+possible to write a custom wrapper that does this in very little code. Miles pointed out this can
+also be handled by fronting load balancers, even though they are on different hardware. From the
+point of view of the inbound client this is irrelevant.
+
+Footnotes
+=========
+
+.. [#zend] This reminds me very much of `Zend Project <https://www.php.net/manual/en/internals2.ze1.php>`__.
+   I'm not sure why this wasn't used, but maybe it was.
