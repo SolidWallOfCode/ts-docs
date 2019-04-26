@@ -229,6 +229,236 @@ The only thing that :program:`traffic_manager` provides that is not easily put i
 :program:`traffic_server` is the external process RPC. To me, this is once again wrapped up with
 the overall brokenness of the RPC.
 
+`Long discussion about RPC <rpc>`_.
+
+TLS State of the Onion
+======================
+
+Susan's slides, I couldn't take notes.
+
+Masaori talked about refactoring "ssl_multicert.config" based on work with QUIC.
+
+Require openSSL 1.0.2+ for ATS 9
+   This means droppping support for CentOS 6 and Ubuntu 14.04. Currently ATS 8 only requires
+   openSSL 0.9.4+ which is far too old.
+
+Common Mistakes for Configuration
+   Frequent use of `#ifdef` instead of `#if`.
+
+   Use of :code:`AC_CHECK_HEADER` definitions without actually calling ;code:`AC_CHECK_HEADER`.
+
+Cleanup
+   *  Replace tokenizer with :code:`TextView`.
+   *  Drop NPN support for ATS 9?
+   *  Agreed that "I\_" and "P\_" prefixes are obsolete and should be removed.
+
+Need to talk about how to organize include files in order to deprecate the "I\_" and "P\_" prefixes.
+
+We want to move the "ssl\_" prefixed functions from globals to a namespace.
+
+
+Plugin Review
+=============
+
+Concern about the process of promoting plugins from experiment to stable. Therefore this is a
+walk through of current plugins and what should be done with them.
+
+access_control
+   Remain experimental.
+
+acme
+   Unclear about what this does and what support it has. This supports "Let's Encrypt" use. "Acme"
+   is a protocol of which "Let's Encrypt" is an implementation. Remain experimental.
+
+balancer
+   Deprecate? This is being moved in to the core.
+
+buffer_upload
+   Ancient and unchanging. Should be deprecated or promoted.
+
+cache_key_genid
+   What does this do? Look at deprecating, move functionality into another plugin.
+
+cache_promote
+   Promote to stable.
+
+cache_range_requests
+   Used by :program:`traffic_ctl`. Promote when documented.
+
+cachekey
+   Already promoted.
+
+certifier
+   Promote to stable or move to examples. Much of this is being moved in to the core.
+
+collapsed_forwarding
+   Check with Comcast. Used by Kit.
+
+cookie_remap
+   Keep in experimental.
+
+custom_redirect
+   Investigate - does any one use this?
+
+fastcgi
+   Remain experimental.
+
+fq_pacing
+   Remain experimental.
+
+geoip_acl
+   Remain experimental.
+
+header_freq
+   Remain experimental.
+
+header_normalize
+   Deprecate. Obsolete functionality.
+
+hipes
+   Deprecate. Obsolete functionality.
+
+hook-trace
+   Experimental
+
+inliner
+   Consider deprecating? Functionality covered by :code:`pagespeed`?
+
+ja3_fingerprint
+   Experimental.
+
+magick
+   Experimental.
+
+memcache
+   Deprecate. Move to example as a prorotocol plugin example?
+
+memcached_remap
+   Deprecate.
+
+metalink
+   Remain experimental.
+
+money_trace
+   JvD will ask if this is still viable.
+
+mp4
+   Remain experimental.
+
+multiplexer
+   Promote to stable.
+
+mysql_remap
+   Deprecate.
+
+prefetch
+   Promote to stable.
+
+remap_purge
+   Promote to stable.
+
+remap_stats
+   Promote when documented.
+
+server_push_preload
+   Remain experimental.
+
+slicer
+   Remain experimental.
+
+webp_transform
+   Functionality replaced by :code:`magick`. Deprecate when the latter is promoted.
+
+ssl_session_reuse
+   Remain experimental.
+
+sslheaders
+   Remain experimental. Try to move functionality to :code:`header_rewrite`.
+
+stale_while_revalidate
+   Deprecated already. Should remove code.
+
+stream_editor
+   Remain experimental.
+
+system_stats
+   Remain experimental.
+
+tls_bridge
+   Remain experimental.
+
+traffic_dump
+   Remain experimental.
+
+uri_signing
+   Remain experimental.
+
+url_sig
+   Remain experimental.
+
+Kubernetes
+==========
+
+Project goal is to support Kubernetes as a general corporate infrastructure. ATS would be used as
+a routing engine.
+
+Using :program:`tmgr_plugin` because the frequency of updates is on the same scale as the time
+delay for :program:`traffic_ctl` making the latter unusable in production.
+
+ATS is put in a docker container image, using an image built from a local build along with plugins
+and configuration. This is then deployed as part of a Kubernetes pod.
+
+There is a caching ATS in the Kubernetes infrastructure, then the "parent.config" is updated
+automatically to forward requests to the caching  instance(s). This means that updating the
+"parent.config" means doing a full configuration reload. It would be nice to be able to do more
+incremental updates to the upstream selection.
+
+To integrate ATS in to Kubernetes we would need something to process from Kubernetes YAML to
+ATS configurations. This may already exist, done by unixwitch, but it hasn't been updated since
+July 2017.
+
+Remap
+=====
+
+A descent in to madness. Leif pushed for doing a complete redesign of url rewriting and other
+configurations. The idea is that remap is restructured along different lines in order to support
+more complex configurations. We would also incorporate other configurations that are URL dependent,
+such as "hosting.config", in to the URL rewrite. In essence URL rewrite becomes something like what
+was envisioned for Layer 7 Routing, where a request is passed in to a feature extractor and then
+a decision tree, which yields a data record. That record determines behavior for the request for
+various modules (e.g. upstream selection, cache properties, etc.).
+
+There was no real resolution, execpt Miles seems to have gotten stuck with leading a working group
+to do the design. I managed to limit myself to just doing the coding and YAML support.
+
+Although the current project for YAML for "remap.config" is not going to fly, some general comments
+were
+
+*  Get rid of named filters entirely. All filters must be defined in line per rule. To save typing,
+   if that's desired, YAML anchors and references could be used.
+
+*  Rule 3 [#rule3]_ for filters was grudgingly accepted. It wasn't liked, but it was agreed it
+   matched the "intuitive" behavior.
+
+*  Filters should not affect matching.
+
+*  It's fine to unify all the rules and use extra tags / options to map to existing types of rules.
+
+The implementation of YAML should be as independent as possible. I want to try to do this as a
+plugin first. Use txn-box as the platform to experiment.
+
+General Notes
+=============
+
+Leif wants it to be noted the rule about string manipulation should be
+
+.. centered:: Use :code:`std::string_view` unless methods from :code:`ts::TextView` are explicitly needed.
+
+.. _rpc:
+
+There's general agreement the current internal RPC is messed up and/or broken. It's also the
+concensus that a `JSON-RPC <http://jsonrpc.org>`__ compatible protocol should be used.
+
 Discussion on how the external connectivity for the RPC - should it be done via the normal proxy
 ports or keep it as a specialized communication channel (e.g. via UNIX domain sockets). Long
 discussion about this. I think there is more concern about the complexity of the transport than is
@@ -236,14 +466,90 @@ warrented. I also think even if the overall implementations are different betwee
 and an HTTP based channel are different, the core implementation is identical. That part is the
 request parsing, dispatch, and response generation.
 
+.. topic:: Commentary
+
+    I have no doubt a proxy port based approach would be quite nice in many ways. My concern is
+    primarily that the additional complexity due to security concerns will be more than the effort
+    to make it work on a custom channel. I understand what is needed for the latter case but we
+    don't seem to have any designs for how to deal with the security issues for the former.
+
 Kit brought up the issue of :program:`traffic_manager` keeping the proxy ports open means the listen
 queue for the proxy ports is also maintained across :program:`traffic_server` restarts. It would be
 possible to write a custom wrapper that does this in very little code. Miles pointed out this can
 also be handled by fronting load balancers, even though they are on different hardware. From the
 point of view of the inbound client this is irrelevant.
 
+.. topic:: Commentary
+
+    I think I should make an attempt at doing this quickly, to try to get the scope better in mind
+    and determine who is correct about the level of effort. At a minimum I can get the parse,
+    dispatch, response logic working which will be required for any eventuality. Also there have
+    been numerous instances where the poor RPC implementation has been a blocker.
+
+Wrapup
+======
+
+Discussion on next summits, for Fall 2019 and Spring 2020. Concensus is to aim for first half of
+October. For Spring 2020, considering London (Apple, VZM), St. Croix (Go Daddy), Cork (Apple), or
+Trondheim (Vespa).
+
+For ATS 9
+
+*  Merge QUIC branch to master. Claim "draft compliance" as an experimental feature. Do it the same
+   way as with SPDY and HTTP/2.
+
+*  YAML cleanup so everything is composable.
+
+   *  Clean up logging, IP Allow, parent config, SSL server name.
+
+   *  Make sure the YAML is consistent with current best practices.
+
+*  Incompatible changes
+
+   *  Remove file name configuration variables and rely on layout / runroot.
+
+   *  "ssl_multicert.config" cleanup. Hopefully remove this file.
+
+   *  Leif needs to make a list of things to remove.
+
+We should have a real plan got ATS 10 instead of everyone just going wild. Probably branching at
+ATS 9 in Jun 2019, release in Oct 2019.
+
+ATS 9.0
+   QUIC plumbing / draft
+
+ATS 9.1
+   JSON-RPC
+
+ATS 9.2
+   Add remap YAML on the side.
+
+Overall we need to focus on reliability over features and reduce the feature velocity on master until
+we can get stable releases out in a reasonable amount of time.
+
+Threads
+-------
+
+There is an issue where it's possible to get Continuations skewed across threads. The primary
+example in the discussion is a plugin which has its own thread A and calls (for example
+:code:`TSNetConnect`) which creates a NetVC. But that NetVC needs to run on an ``ET_NET``. The
+problem is this is done by requiring the Coninuation to be locked and extracting the affine thread
+from the mutex. It would be better to use thread affinity to get this information. This
+unfortunately will need to be done on an ad hoc basis because the various functions are
+idiosyncratic about this. It might also be necessary to have a mechanism to set thread affinity
+to a pool before scheduling, so that things such as pre thread proxy allocators can be used
+correctly (because a thing can't be scheduled before it's allocated).
+
+I'm still not sure I really understand what the problem is, or why it's a new problem. As far as I
+can tell it either works, or has been problematic for a long time. It's been on my list for a while
+to do better documentation on how threads, mutexes, and Continuations should interact inside
+plugins.
+
 Footnotes
 =========
 
 .. [#zend] This reminds me very much of `Zend Project <https://www.php.net/manual/en/internals2.ze1.php>`__.
    I'm not sure why this wasn't used, but maybe it was.
+
+.. [#rule3] "There is an implicit trailing match all with an action that is the opposite of the last
+   explicit action"
