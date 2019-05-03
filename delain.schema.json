@@ -1,0 +1,169 @@
+{
+  "$schema": "https://github.com/solidwallofcode/schema/delain.schema.json",
+  "title": "Delain plugin Configuration",
+  "description": "Traffic Server Delain plugin configuration",
+  "type": "object",
+  "properties": {
+    "delain": {
+      "description": "Root configuration",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Configuration format version."
+        },
+        "rules": {
+          "description": "List of rules",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rule"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "rule": {
+      "description": "Configuration rule.",
+      "type": "object",
+      "properties": {
+        "cond": { "$ref": "#/definitions/condition" },
+        "action": { "$ref": "#/definitions/action-list" },
+        "hook": { "$ref": "#/definitions/hook" }
+      }
+    },
+    "condition": {
+      "anyOf": [
+        { "$ref": "#/definitions/predicate/match" },
+        { "$ref": "#/definitions/predicate/equal" },
+        { "$ref": "#/definitions/predicate/and" },
+        { "$ref": "#/definitions/predicate/or" }
+      ]
+    },
+    "action-list": {
+      "description": "Action or list of actions.",
+      "anyOf": [
+        { "$ref": "#/definitions/action" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/action" }
+        }
+      ]
+    },
+    "action" : {
+      "anyOf": [
+        { "$ref": "#/definitions/op/set-field" },
+        { "$ref": "#/definitions/op/set-status" }
+      ]
+    },
+    "predicate": {
+      "equal": {
+        "description": "Check if values are equal.",
+        "type": "array",
+        "minItems": 1,
+        "items": [{
+            "type": "string",
+            "const": "equal"
+          }
+        ],
+        "additionalItems": {
+          "type": ["number", "string"]
+        }
+      },
+      "match": {
+        "description": "Regular expression matching.",
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 4,
+        "items": [{
+            "description": "Keyword",
+            "const": "match"
+          }, {
+            "description": "Regular expression",
+            "type": "string"
+          }, {
+            "description": "Target string",
+            "type": "string"
+          }, {
+            "description": "Options",
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "Regular expresison name.",
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "and": {
+        "description": "Logical and of an ordered list of conditions.",
+        "type": "array",
+        "minItems": 1,
+        "items": [{
+            "type": "string",
+            "const": "and"
+          }
+        ],
+        "additionalItems": { "$ref": "#/definitions/condition" }
+      },
+      "or": {
+        "description": "Logical or of an ordered list of conditions.",
+        "type": "array",
+        "minItems": 1,
+        "items": [{
+            "type": "string",
+            "const": "or"
+          }
+        ],
+        "additionalItems": { "$ref": "#/definitions/condition" }
+      }
+
+    },
+    "op": {
+      "set-field": {
+        "description": "Set a header field.",
+        "type": "array",
+        "minItems": 3,
+        "items": [
+          { "description": "keyword", "type": "string", "const": "set-field" },
+          {
+            "description": "Field name",
+            "type": "string"
+          },
+          {
+            "description": "Field value",
+            "type": "string"
+          }
+        ]
+      },
+      "set-status": {
+        "description": "Set the status of the proxy response.",
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 3,
+        "items": [
+          {
+            "description": "keyword",
+            "const": "set-status"
+          },
+          {
+            "description": "Status value",
+            "type": "integer"
+          },
+          {
+            "description": "Status reason.",
+            "type": "string"
+          }
+        ]
+      },
+      "hook" {
+        "description": "Hook context for rule.",
+        "type": "string",
+        "enumeration": [
+          "READ_REQUEST", "SEND_REQUEST"
+        ]
+      }
+    }
+  }
+}

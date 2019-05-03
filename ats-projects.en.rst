@@ -22,6 +22,7 @@ Projects
    l4r.en
    plugin-coordination.en
    RPC.en
+   delain.en
 
 ======================
 Less Detailed Projects
