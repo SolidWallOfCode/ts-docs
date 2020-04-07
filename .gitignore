@@ -4,3 +4,7 @@
 local-config.py
 docbuild/
 poc/cache_sm.dot
+
+.idea
+.vscode
+_build
