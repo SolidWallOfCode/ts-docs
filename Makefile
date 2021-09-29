@@ -61,5 +61,7 @@ publish: clean html
 	$(SHELL) ./publish.sh
 
 ext/local-config.py : Makefile
-	@echo "plantuml = '$(JAVA) -jar $(PLANTUML_JAR)'" > ext/local-config.py
-	@echo "plantuml_output_format = 'svg'" >> ext/local-config.py
+	@echo "def setup(app):" > ext/local-config.py
+	@echo "  app.config.plantuml = '$(JAVA) -jar $(PLANTUML_JAR)'" >> ext/local-config.py
+	@echo "  app.config.plantuml_output_format = 'svg'" >> ext/local-config.py
+
