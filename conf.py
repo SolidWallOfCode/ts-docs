@@ -52,10 +52,8 @@ extensions = [ 'sphinx.ext.graphviz'
              , 'sphinx.ext.githubpages'
              , 'sphinxcontrib.plantuml'
              , 'local'
+             , 'local-config'
              ]
-
-# Contains values that are dependent on configure.ac.
-execfile('ext/local-config.py')
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -91,23 +89,6 @@ release = '8.0.x'
 #language = None
 locale_dirs = ['locale/']
 gettext_compact = False
-
-## HACK for Read-the-Docs
-##  Generate .mo files just in time
-if os.environ.get('READTHEDOCS') == 'True':
-  import polib
-  print "Generating .mo files",
-  for locale_dir in locale_dirs:
-    for path, dummy, filenames in os.walk(locale_dir):
-      for filename in filenames:
-        po_file = os.path.join(path, filename)
-        base, ext = os.path.splitext(po_file)
-        if ext == ".po":
-          mo_file = base + ".mo"
-          po = polib.pofile(po_file)
-          po.save_as_mofile(fpath=mo_file)
-  print "done"
-## End of HACK
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:

@@ -1,0 +1,13 @@
+@startuml
+
+node ATC_OPS {
+  package atc_ops
+  database ops
+  database vault
+}
+
+node ATC_PORTAL {
+  package atc_portal
+}
+
+@enduml
