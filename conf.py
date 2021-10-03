@@ -121,6 +121,17 @@ pygments_style = 'sphinx'
 #modindex_common_prefix = []
 
 nitpicky=1
+nitpick_ignore = [('c:type', 'int64_t'),
+                  ('c:type', 'bool'),
+                  ('c:type', 'sockaddr'),
+                  ('cpp:identifier', 'T'),  # template arg
+                  ('cpp:identifier', 'F'),  # template arg
+                  ('cpp:identifier', 'Args'),  # variadic template arg
+                  ('cpp:identifier', 'Rest'),  # variadic template arg
+                  ('c:type', 'uint64_t'),
+                  ('c:type', 'uint8_t'),
+                  ('c:type', 'int32_t')
+                  ]
 
 # -- Options for HTML output ---------------------------------------------------
 
