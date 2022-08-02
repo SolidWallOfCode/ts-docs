@@ -23,6 +23,9 @@ $(IMAGEDIR)/%.png : $(UMLDIR)/%.uml
 $(IMAGEDIR)/%.svg : $(UMLDIR)/%.uml
 	$(PLANTUML) $< -tsvg -o $(shell $(REALPATH) $(IMAGEDIR))
 
+$(IMAGEDIR)/%.svg : $(UMLDIR)/%.plantuml
+	$(PLANTUML) $< -tsvg -o $(shell $(REALPATH) $(IMAGEDIR))
+
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
@@ -34,10 +37,12 @@ html: uml $(BUILD_IMAGEDIR)/ts-projects.png ext/local-config.py
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
-uml: $(IMAGEDIR)/ts-projects.png\
-     $(IMAGEDIR)/ts-api-action.png\
-     $(IMAGEDIR)/cache-dir-sync.png \
-     $(IMAGEDIR)/layer-4-proxy.png 
+uml: $(IMAGEDIR)/ts-projects.png
+uml: $(IMAGEDIR)/ts-api-action.png
+uml: $(IMAGEDIR)/cache-dir-sync.png 
+uml: $(IMAGEDIR)/layer-4-proxy.png 
+uml: $(IMAGEDIR)/l7-basic-activity.svg
+uml: $(IMAGEDIR)/outbound-ssn-hooks.svg
 
 $(BUILD_IMAGEDIR)/ts-projects.png: $(IMAGEDIR)/ts-projects.png
 	@mkdir -p $(BUILD_IMAGEDIR)

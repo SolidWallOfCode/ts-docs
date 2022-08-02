@@ -1,0 +1,57 @@
+@startuml 
+
+|HttpSM|
+start
+:Select strategy;
+|Router|
+repeat
+:Select upstream;
+|Connector|
+  if (in pool) then (yes)
+    :return txn;
+    |Router|
+    :return txn;
+    |HttpSM|
+    (A)
+    detach
+  else (no)
+  endif
+  |Connector|
+  :connect to upstream;
+  if (success) then (yes)
+    :return txn;
+    |Router|
+    :return txn;
+    |HttpSM|
+    (A)
+    detach
+  else(no)
+    |Connector|
+    :return failure;
+  endif
+|Router|
+  if (retry) then (no)
+    :return failure;
+    |HttpSM|
+    (A)
+    detach
+    |Router|
+  else (yes)
+  endif
+repeatwhile
+detach
+
+|HttpSM|
+(A)
+if (txn valid) then (yes)
+  :Transaction with upstream;
+  :Report result;
+  |Router|
+  :Process Result;
+else (no)
+endif
+
+|HttpSM|
+stop
+
+@enduml
